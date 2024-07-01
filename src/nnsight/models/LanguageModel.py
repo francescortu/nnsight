@@ -129,9 +129,11 @@ class LanguageModel(GenerationMixin, NNsight):
         *args,
         tokenizer: Optional[PreTrainedTokenizer] = None,
         automodel: Type[AutoModel] = AutoModelForCausalLM,
+        tokenize: bool = True,
         **kwargs,
     ) -> None:
         self.tokenizer: PreTrainedTokenizer = tokenizer
+        self.tokenize: bool = tokenize
         self._model: PreTrainedModel = None
         self.automodel = (
             automodel
@@ -224,6 +226,10 @@ class LanguageModel(GenerationMixin, NNsight):
         labels: Any = None,
         **kwargs,
     ) -> Tuple[BatchEncoding, int]:
+        
+        if self.tokenize is False:
+            return (inputs,), len(inputs)
+        
         if isinstance(inputs, dict):
 
             new_inputs = dict()
@@ -244,6 +250,9 @@ class LanguageModel(GenerationMixin, NNsight):
                 labels = self._tokenize(inputs["labels"], **kwargs)
 
                 new_inputs["labels"] = labels["input_ids"]
+                
+            if "pixel_values" in inputs:
+                new_inputs["pixel_values"] = inputs["pixel_values"]
 
             return (BatchEncoding(new_inputs),), len(new_inputs["input_ids"])
 
@@ -261,7 +270,10 @@ class LanguageModel(GenerationMixin, NNsight):
         batched_inputs: Optional[Dict[str, Any]],
         prepared_inputs: BatchEncoding,
     ) -> Tuple[Dict[str, Any]]:
-
+        
+        if self.tokenize is False:
+            return (prepared_inputs,)
+        
         if batched_inputs is None:
             batched_inputs = {"input_ids": []}
 
@@ -270,7 +282,6 @@ class LanguageModel(GenerationMixin, NNsight):
 
             if "attention_mask" in prepared_inputs:
                 batched_inputs["attention_mask"] = []
-
         else:
 
             batched_inputs = batched_inputs[0]
@@ -287,10 +298,10 @@ class LanguageModel(GenerationMixin, NNsight):
     def _execute_forward(self, prepared_inputs: Any, *args, **kwargs):
 
         device = next(self._model.parameters()).device
-
+        prepared_inputs = prepared_inputs.to(device)
         return self._model(
             *args,
-            **prepared_inputs.to(device),
+            **prepared_inputs,
             **kwargs,
         )
 
