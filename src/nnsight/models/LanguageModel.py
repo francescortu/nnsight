@@ -250,9 +250,6 @@ class LanguageModel(GenerationMixin, NNsight):
                 labels = self._tokenize(inputs["labels"], **kwargs)
 
                 new_inputs["labels"] = labels["input_ids"]
-                
-            if "pixel_values" in inputs:
-                new_inputs["pixel_values"] = inputs["pixel_values"]
 
             return (BatchEncoding(new_inputs),), len(new_inputs["input_ids"])
 
@@ -298,10 +295,10 @@ class LanguageModel(GenerationMixin, NNsight):
     def _execute_forward(self, prepared_inputs: Any, *args, **kwargs):
 
         device = next(self._model.parameters()).device
-        prepared_inputs = prepared_inputs.to(device)
+
         return self._model(
             *args,
-            **prepared_inputs,
+            ** prepared_inputs.to(device),
             **kwargs,
         )
 
